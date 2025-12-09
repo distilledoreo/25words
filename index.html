@@ -160,6 +160,7 @@
 
             // Auth
             useEffect(() => {
+                let isDemo = false;
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -169,14 +170,25 @@
                         }
                     } catch (error) {
                         console.warn('Firebase auth error (using demo mode):', error.message);
+                        isDemo = true;
                         // Set a mock user to allow the app to function in demo mode
-                        setUser({ uid: 'demo-user-' + Math.random().toString(36).substr(2, 9) });
+                        setUser({ uid: 'demo-user-' + Math.random().toString(36).substring(2, 11) });
                     }
                 };
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged(u => {
-                    if (u) setUser(u);
-                });
+                
+                // Only set up auth listener if not in demo mode
+                let unsubscribe = () => {};
+                if (!isDemo) {
+                    try {
+                        unsubscribe = auth.onAuthStateChanged(u => {
+                            if (u) setUser(u);
+                        });
+                    } catch (error) {
+                        console.warn('Firebase auth listener error:', error.message);
+                    }
+                }
+                
                 return () => unsubscribe();
             }, []);
 
