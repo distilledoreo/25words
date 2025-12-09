@@ -45,7 +45,7 @@ Add a script tag before the closing `</head>` tag in `index.html`:
 ## Game Rules
 
 1. **Giver Selection**: One person from each team views the 5 secret words
-2. **Bidding**: Teams bid on how many words they need to help their team guess all 5 words
+2. **Bidding**: Teams bid on how many clues they need to help their team guess all 5 words
 3. **Playing**: The Giver provides clues, and teammates try to guess all words within the bid limit
 4. **Scoring**: Successfully guessing all words within the limit awards 250 points
 

@@ -161,14 +161,22 @@
             // Auth
             useEffect(() => {
                 const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await auth.signInWithCustomToken(__initial_auth_token);
-                    } else {
-                        await auth.signInAnonymously();
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (error) {
+                        console.warn('Firebase auth error (using demo mode):', error.message);
+                        // Set a mock user to allow the app to function in demo mode
+                        setUser({ uid: 'demo-user-' + Math.random().toString(36).substr(2, 9) });
                     }
                 };
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged(u => setUser(u));
+                const unsubscribe = auth.onAuthStateChanged(u => {
+                    if (u) setUser(u);
+                });
                 return () => unsubscribe();
             }, []);
 
@@ -194,11 +202,15 @@
                             cluesLog: []
                         });
                     }
+                }).catch((error) => {
+                    console.warn("Firebase initialization error (demo mode):", error.message);
                 });
 
                 const unsubscribe = gameRef.onSnapshot((doc) => {
                     if (doc.exists) setGameState(doc.data());
-                }, (error) => console.error("Sync error", error));
+                }, (error) => {
+                    console.warn("Firestore sync error (demo mode):", error.message);
+                });
 
                 return () => unsubscribe();
             }, [user, joined, roomCode]);
@@ -207,7 +219,13 @@
 
             const updateGame = async (updates) => {
                 if (!user || !roomCode) return;
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gamestate').doc(roomCode.toUpperCase()).update(updates);
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gamestate').doc(roomCode.toUpperCase()).update(updates);
+                } catch (error) {
+                    console.warn("Firebase update error (demo mode):", error.message);
+                    // In demo mode, update local state as fallback
+                    setGameState(prev => ({ ...prev, ...updates }));
+                }
             };
 
             const generateRoomCode = () => {
