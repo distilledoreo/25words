@@ -41,7 +41,20 @@
         const { useState, useEffect, useRef, useMemo } = React;
 
         // --- Firebase Init ---
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Check if Firebase config is provided, otherwise use a placeholder for demo mode
+        // Note: To use real Firebase functionality, define __firebase_config as a global variable
+        // with your Firebase project credentials before this script runs
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config)
+            : {
+                apiKey: "demo-api-key",
+                authDomain: "demo-project.firebaseapp.com",
+                projectId: "demo-project",
+                storageBucket: "demo-project.appspot.com",
+                messagingSenderId: "123456789",
+                appId: "1:123456789:web:abcdef123456"
+            };
+        
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -147,16 +160,31 @@
 
             // Auth
             useEffect(() => {
+                let unsubscribe;
+                
                 const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await auth.signInWithCustomToken(__initial_auth_token);
-                    } else {
-                        await auth.signInAnonymously();
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                        
+                        // Set up auth listener only if Firebase auth succeeded
+                        try {
+                            unsubscribe = auth.onAuthStateChanged(u => setUser(u));
+                        } catch (error) {
+                            console.warn('Firebase auth listener error:', error.message);
+                        }
+                    } catch (error) {
+                        console.warn('Firebase auth error (using demo mode):', error.message);
+                        // Set a mock user to allow the app to function in demo mode
+                        setUser({ uid: 'demo-user-' + Math.random().toString(36).substring(2, 11) });
                     }
                 };
+                
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged(u => setUser(u));
-                return () => unsubscribe();
+                return () => { if (unsubscribe) unsubscribe(); };
             }, []);
 
             // Firestore Listener - DEPENDS ON JOINED AND ROOMCODE
@@ -181,11 +209,15 @@
                             cluesLog: []
                         });
                     }
+                }).catch((error) => {
+                    console.warn("Firebase initialization error (demo mode):", error.message);
                 });
 
                 const unsubscribe = gameRef.onSnapshot((doc) => {
                     if (doc.exists) setGameState(doc.data());
-                }, (error) => console.error("Sync error", error));
+                }, (error) => {
+                    console.warn("Firestore sync error (demo mode):", error.message);
+                });
 
                 return () => unsubscribe();
             }, [user, joined, roomCode]);
@@ -194,7 +226,13 @@
 
             const updateGame = async (updates) => {
                 if (!user || !roomCode) return;
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gamestate').doc(roomCode.toUpperCase()).update(updates);
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gamestate').doc(roomCode.toUpperCase()).update(updates);
+                } catch (error) {
+                    console.warn("Firebase update error (demo mode):", error.message);
+                    // In demo mode, update local state as fallback
+                    setGameState(prev => ({ ...prev, ...updates }));
+                }
             };
 
             const generateRoomCode = () => {
