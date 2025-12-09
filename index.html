@@ -41,7 +41,20 @@
         const { useState, useEffect, useRef, useMemo } = React;
 
         // --- Firebase Init ---
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Check if Firebase config is provided, otherwise use a placeholder for demo mode
+        // Note: To use real Firebase functionality, define __firebase_config as a global variable
+        // with your Firebase project credentials before this script runs
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config)
+            : {
+                apiKey: "demo-api-key",
+                authDomain: "demo-project.firebaseapp.com",
+                projectId: "demo-project",
+                storageBucket: "demo-project.appspot.com",
+                messagingSenderId: "123456789",
+                appId: "1:123456789:web:abcdef123456"
+            };
+        
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
