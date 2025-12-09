@@ -160,7 +160,8 @@
 
             // Auth
             useEffect(() => {
-                let isDemo = false;
+                let unsubscribe;
+                
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -168,28 +169,22 @@
                         } else {
                             await auth.signInAnonymously();
                         }
+                        
+                        // Set up auth listener only if Firebase auth succeeded
+                        try {
+                            unsubscribe = auth.onAuthStateChanged(u => setUser(u));
+                        } catch (error) {
+                            console.warn('Firebase auth listener error:', error.message);
+                        }
                     } catch (error) {
                         console.warn('Firebase auth error (using demo mode):', error.message);
-                        isDemo = true;
                         // Set a mock user to allow the app to function in demo mode
                         setUser({ uid: 'demo-user-' + Math.random().toString(36).substring(2, 11) });
                     }
                 };
+                
                 initAuth();
-                
-                // Only set up auth listener if not in demo mode
-                let unsubscribe = () => {};
-                if (!isDemo) {
-                    try {
-                        unsubscribe = auth.onAuthStateChanged(u => {
-                            if (u) setUser(u);
-                        });
-                    } catch (error) {
-                        console.warn('Firebase auth listener error:', error.message);
-                    }
-                }
-                
-                return () => unsubscribe();
+                return () => { if (unsubscribe) unsubscribe(); };
             }, []);
 
             // Firestore Listener - DEPENDS ON JOINED AND ROOMCODE
