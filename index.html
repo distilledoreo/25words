@@ -74,29 +74,77 @@
         const db = firebase.firestore();
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // --- Game Data ---
-        const WORD_SETS = [
-            ["Astronaut", "Moon", "Rocket", "Gravity", "NASA"],
-            ["Pizza", "Cheese", "Pepperoni", "Italy", "Crust"],
-            ["Vampire", "Blood", "Dracula", "Fangs", "Coffin"],
-            ["Beach", "Sand", "Ocean", "Sunblock", "Towel"],
-            ["Wedding", "Bride", "Groom", "Cake", "Ring"],
-            ["Baseball", "Bat", "Pitcher", "Homerun", "Strike"],
-            ["Library", "Books", "Quiet", "Card", "Shelf"],
-            ["Doctor", "Hospital", "Medicine", "Nurse", "Surgery"],
-            ["Camping", "Tent", "Fire", "Marshmallow", "Woods"],
-            ["Pirate", "Ship", "Treasure", "Parrot", "Eye Patch"],
-            ["Christmas", "Tree", "Santa", "Presents", "Reindeer"],
-            ["Dinosaur", "T-Rex", "Fossil", "Extinct", "Jurassic"],
-            ["School", "Teacher", "Homework", "Recess", "Desk"],
-            ["Zoo", "Animals", "Cage", "Keeper", "Tickets"],
-            ["Movie", "Popcorn", "Screen", "Ticket", "Hollywood"],
-            ["Superhero", "Cape", "Villain", "Powers", "Mask"],
-            ["Computer", "Keyboard", "Mouse", "Screen", "Internet"],
-            ["Farm", "Cow", "Barn", "Tractor", "Farmer"],
-            ["Airport", "Plane", "Pilot", "Luggage", "Security"],
-            ["Bowling", "Strike", "Ball", "Pins", "Shoes"]
+        // --- Word fetching logic ---
+        // We no longer rely on pre-defined WORD_SETS. Instead we fetch completely random words
+        // from a public API, falling back to a small bundled dictionary if the network call fails.
+        //
+        // Public API used: https://random-word-api.vercel.app/api?words=5
+        // (simple, returns JSON array of plain words). If that fails (CORS/network),
+        // we sample 5 unique words from the local fallback dictionary.
+
+        const LOCAL_DICTIONARY = [
+            "apple","banana","car","dog","elephant","forest","guitar","house","island","jungle",
+            "kangaroo","lamp","mountain","notebook","ocean","piano","queen","river","sunflower","tree",
+            "umbrella","violin","window","xylophone","yogurt","zebra","airport","bridge","castle","diamond",
+            "engine","fountain","garden","harbor","iceberg","jacket","kitchen","library","museum","network",
+            "orchard","palace","quartz","robot","stadium","tunnel","unicorn","volcano","waterfall","xenon",
+            "yacht","zeppelin","arch","battery","compass","drama","eclipse","fabric","glacier","horizon",
+            "invoice","jewel","keyboard","lantern","meadow","nectar","opal","parrot","quill","radar",
+            "satellite","temple","utensil","valley","whale","xerox","yodel","zephyr","alley","bamboo",
+            "crystal","delta","ember","fjord","galleon","harvest","ignite","jigsaw","kettle","lagoon",
+            "marble","nebula","overture","pixel","quasar","riddle","saffron","tundra","unity","vortex",
+            "wander","xanthan","yearn","zeal","atlas","breeze","canyon","dynamo","ember","flint",
+            "glow","hearth","ivy","jetty","kin","lumen","mosaic","nexus","oracle","parade",
+            "quartzite","ripple","solace","tapestry","umbra","verge","wisp","yarrow","zircon","aurora",
+            "brook","cinder","dune","estuary","fjord","grove","hush","isle","jolt","keel"
         ];
+
+        // helper to capitalize words nicely
+        const capitalize = (s) => {
+            if (!s) return s;
+            return s.split(' ').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+        };
+
+        const sampleUnique = (arr, n) => {
+            const set = new Set();
+            const out = [];
+            const max = Math.min(n, arr.length);
+            while (out.length < max) {
+                const i = Math.floor(Math.random() * arr.length);
+                if (!set.has(i)) {
+                    set.add(i);
+                    out.push(arr[i]);
+                }
+            }
+            return out;
+        };
+
+        async function fetchRandomWords(count = 5) {
+            // Try the public random-word-api first
+            const apiUrls = [
+                `https://random-word-api.vercel.app/api?words=${count}`,
+                `https://random-word-api.herokuapp.com/word?number=${count}`
+            ];
+
+            for (const url of apiUrls) {
+                try {
+                    const resp = await fetch(url, { cache: "no-store" });
+                    if (!resp.ok) throw new Error('Bad response');
+                    const data = await resp.json();
+                    if (Array.isArray(data) && data.length >= count) {
+                        // sanitize + capitalize
+                        return data.slice(0, count).map(w => capitalize(String(w).replace(/[^a-zA-Z\s-]/g, '')));
+                    }
+                } catch (err) {
+                    // try next url
+                    // console.warn('Random word API failed for', url, err.message);
+                }
+            }
+
+            // fallback to local dictionary
+            const picked = sampleUnique(LOCAL_DICTIONARY, count);
+            return picked.map(w => capitalize(w));
+        }
 
         // --- Components ---
         
@@ -252,11 +300,12 @@
                 setRoomCode(code);
             };
 
-            const startGame = () => {
-                const randomIndex = Math.floor(Math.random() * WORD_SETS.length);
+            // startGame and nextRound now fetch random words from the API (with fallback)
+            const startGame = async () => {
+                const words = await fetchRandomWords(5);
                 updateGame({
                     scores: { red: 0, blue: 0 },
-                    currentWords: WORD_SETS[randomIndex],
+                    currentWords: words,
                     wordsGuessed: [false, false, false, false, false],
                     usedWordCount: 0,
                     winningBid: 25,
@@ -267,10 +316,10 @@
                 });
             };
 
-            const nextRound = () => {
-                const randomIndex = Math.floor(Math.random() * WORD_SETS.length);
+            const nextRound = async () => {
+                const words = await fetchRandomWords(5);
                 updateGame({
-                    currentWords: WORD_SETS[randomIndex],
+                    currentWords: words,
                     wordsGuessed: [false, false, false, false, false],
                     usedWordCount: 0,
                     winningBid: 25,
@@ -400,13 +449,13 @@
                                     <div className="grid grid-cols-2 gap-3 mt-1">
                                         <button 
                                             onClick={() => setLocalPlayer(p => ({...p, team: 'red'}))}
-                                            className={`p-3 rounded-lg border-2 font-bold ${localPlayer.team === 'red' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-900 border-slate-700 text-slate-500'}`}
+                                            className={`p-3 rounded-lg border-2 font-bold ${localPlayer.team === 'red' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-900 border-slate-700 text-slate-200'}`}
                                         >
                                             Red Team
                                         </button>
                                         <button 
                                             onClick={() => setLocalPlayer(p => ({...p, team: 'blue'}))}
-                                            className={`p-3 rounded-lg border-2 font-bold ${localPlayer.team === 'blue' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-900 border-slate-700 text-slate-500'}`}
+                                            className={`p-3 rounded-lg border-2 font-bold ${localPlayer.team === 'blue' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-900 border-slate-700 text-slate-200'}`}
                                         >
                                             Blue Team
                                         </button>
@@ -508,9 +557,9 @@
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <label className="block text-slate-400 text-xs font-bold uppercase mb-2">Winning Bid</label>
                             <div className="flex items-center justify-between gap-4">
-                                <Button variant="secondary" onClick={() => updateGame({ winningBid: Math.max(1, gameState.winningBid - 1) })} className="w-16 h-16 rounded-full !p-0"><Icon name="minus" /></Button>
+                                <Button variant="secondary" onClick={() => updateGame({ winningBid: Math.max(1, gameState.winningBid - 1) })} className="w-16 h-16 rounded-full !p-0"><Icon name="minus" size={18} /></Button>
                                 <span className="text-5xl font-mono font-bold w-20 text-center">{gameState.winningBid}</span>
-                                <Button variant="secondary" onClick={() => updateGame({ winningBid: gameState.winningBid + 1 })} className="w-16 h-16 rounded-full !p-0"><Icon name="plus" /></Button>
+                                <Button variant="secondary" onClick={() => updateGame({ winningBid: gameState.winningBid + 1 })} className="w-16 h-16 rounded-full !p-0"><Icon name="plus" size={18} /></Button>
                             </div>
                         </div>
 
