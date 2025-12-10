@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { Button } from './Button';
 
-export const PlayingPhase = ({ gameState, user, updateGame, onSubmitRound }) => {
+export const PlayingPhase = ({ gameState, user, localPlayer, updateGame, onSubmitRound }) => {
   const [clueInput, setClueInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(45);
   
@@ -29,12 +29,11 @@ export const PlayingPhase = ({ gameState, user, updateGame, onSubmitRound }) => 
     const words = clueInput.trim().split(/\s+/);
     const count = words.length;
 
-    const GIVER_LABEL = 'Giver';
     const newLog = [...gameState.cluesLog, { 
       text: clueInput, 
       count: count, 
       timestamp: Date.now(),
-      sender: GIVER_LABEL
+      sender: localPlayer.name
     }];
 
     updateGame({

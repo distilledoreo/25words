@@ -121,6 +121,7 @@ function App() {
         <PlayingPhase
           gameState={gameState}
           user={user}
+          localPlayer={localPlayer}
           updateGame={updateGame}
           onSubmitRound={submitRound}
         />

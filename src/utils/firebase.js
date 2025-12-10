@@ -13,7 +13,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456"
 };
 
-export const appId = import.meta.env.VITE_APP_ID || `default-app-id-${Math.random().toString(36).substring(2, 11)}`;
+export const appId = import.meta.env.VITE_APP_ID || 'default-app-id';
 
 // Initialize Firebase
 let app;
