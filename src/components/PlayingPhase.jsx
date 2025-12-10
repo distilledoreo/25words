@@ -29,11 +29,12 @@ export const PlayingPhase = ({ gameState, user, updateGame, onSubmitRound }) => 
     const words = clueInput.trim().split(/\s+/);
     const count = words.length;
 
+    const GIVER_LABEL = 'Giver';
     const newLog = [...gameState.cluesLog, { 
       text: clueInput, 
       count: count, 
       timestamp: Date.now(),
-      sender: 'Giver'
+      sender: GIVER_LABEL
     }];
 
     updateGame({

@@ -30,7 +30,8 @@ export const useGameState = (roomCode, joined) => {
     
     const initAuth = async () => {
       try {
-        // Check for custom auth token
+        // Check for custom auth token (backward compatibility with original implementation)
+        // This allows the app to work with the old global variable pattern
         const customToken = window.__initial_auth_token;
         if (customToken) {
           await signInWithCustomToken(auth, customToken);
